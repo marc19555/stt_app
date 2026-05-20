@@ -1,0 +1,25 @@
+# Jupyter
+.ipynb_checkpoints/
+
+# Environnement
+.env.local
+.env
+venv/
+__pycache__/
+*.pyc
+
+# Fichiers audio (trop lourds pour Git)
+input/*.ogg
+input/*.mp3
+input/*.wav
+input/*.mp4
+
+# Outputs générés automatiquement
+outputs/
+
+# Docker
+*.dockerignore
+
+# OS
+.DS_Store
+Thumbs.db

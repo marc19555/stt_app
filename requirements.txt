@@ -1,0 +1,7 @@
+jupyter
+faster-whisper
+pyannote.audio
+python-dotenv
+numpy
+soundfile
+torch
