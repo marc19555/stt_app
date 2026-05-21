@@ -9,13 +9,12 @@ __pycache__/
 *.pyc
 
 # Fichiers audio (trop lourds pour Git)
-input/*.ogg
-input/*.mp3
-input/*.wav
-input/*.mp4
+input/*
+!input/.gitkeep
 
 # Outputs générés automatiquement
-outputs/
+outputs/*
+!outputs/.gitkeep
 
 # Docker
 *.dockerignore
