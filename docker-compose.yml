@@ -3,6 +3,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    env_file:
+      - .env.local
     container_name: stt_app
     ports:
       - "8888:8888"
@@ -11,7 +13,6 @@ services:
       - ./outputs:/app/outputs
       - ./.env.local:/app/.env.local:ro
     environment:
-      HF_TOKEN: ${HF_TOKEN:-}
       OLLAMA_HOST: host.docker.internal
       OLLAMA_PORT: "11434"
       OLLAMA_MODEL: qwen3.5:9b
