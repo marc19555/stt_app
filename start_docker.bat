@@ -18,6 +18,11 @@ if not exist ".env.local" (
   echo [INFO] Ajoute HF_TOKEN=... dans .env.local puis relance si necessaire.
 )
 
+echo [INFO] Demarage Ollama avec OLLAMA_HOST=0.0.0.0
+set "OLLAMA_HOST=0.0.0.0"
+start "" ollama serve
+timeout /t 5 /nobreak >nul
+
 echo [INFO] Build + demarrage du service stt-app...
 docker compose up -d --build
 if errorlevel 1 (
