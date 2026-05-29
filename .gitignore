@@ -21,4 +21,7 @@ outputs/*
 
 # OS
 .DS_Store
-Thumbs.db
+Thumbs.
+
+#db
+stt_app.db
