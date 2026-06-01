@@ -5,15 +5,16 @@ WORKDIR /app
 # Dépendances système
 RUN apt-get update && apt-get install -y \
     ffmpeg \
-    git \
+    libsndfile1 \
     && rm -rf /var/lib/apt/lists/*
 
-# Copie et installe les packages Python
+# Installe les librairies Python
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copie le projet
-COPY . .
+# Copie le code
+COPY . /app/pipeline_worker/
 
-# Lance Jupyter
-CMD ["jupyter", "notebook", "--ip=0.0.0.0", "--port=8888", "--no-browser", "--allow-root", "--ContentsManager.allow_hidden=True"]
+WORKDIR /app/pipeline_worker
+
+CMD ["python", "-u", "worker.py"]

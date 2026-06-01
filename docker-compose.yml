@@ -1,21 +1,12 @@
 services:
-  stt-app:
+  pipeline_worker:
     build:
-      context: .
+      context: ./pipeline_worker
       dockerfile: Dockerfile
+    volumes:
+      - ./data:/app/data
     env_file:
       - .env.local
-    container_name: stt_app
-    ports:
-      - "8888:8888"
-    volumes:
-      - ./input:/app/input
-      - ./outputs:/app/outputs
-      - ./.env.local:/app/.env.local:ro
-    environment:
-      OLLAMA_HOST: host.docker.internal
-      OLLAMA_PORT: "11434"
-      OLLAMA_MODEL: qwen3.5:9b
     extra_hosts:
       - "host.docker.internal:host-gateway"
     restart: unless-stopped

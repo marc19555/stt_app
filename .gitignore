@@ -1,6 +1,3 @@
-# Jupyter
-.ipynb_checkpoints/
-
 # Environnement
 .env.local
 .env
@@ -8,20 +5,5 @@ venv/
 __pycache__/
 *.pyc
 
-# Fichiers audio (trop lourds pour Git)
-input/*
-!input/.gitkeep
-
-# Outputs générés automatiquement
-outputs/*
-!outputs/.gitkeep
-
-# Docker
-*.dockerignore
-
-# OS
-.DS_Store
-Thumbs.
-
-#db
-stt_app.db
+Data/
+!Data/.gitkeep

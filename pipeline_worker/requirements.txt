@@ -1,7 +1,7 @@
-jupyter
 faster-whisper
 pyannote.audio
-python-dotenv
+requests
+python-docx
 numpy
 soundfile
-torch
+dotenv
