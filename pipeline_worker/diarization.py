@@ -21,12 +21,17 @@ def run_diarization(audio_path, session_folder):
         token=HF_TOKEN
     )
 
-    # Lance la diarisation
+    # Lance la diarisation (renvoie un objet DiarizeOutput)
     diarization = pipeline(audio_path)
 
     # Convertit en JSON
     segments = []
-    for turn, _, speaker in diarization.itertracks(yield_label=True):
+    
+    # CORRECTION : On cible l'attribut qui contient la vraie annotation de la v4
+    annotation = diarization.speaker_diarization
+    
+    # On peut maintenant itérer proprement comme avant
+    for turn, _, speaker in annotation.itertracks(yield_label=True):
         segments.append({
             "speaker": speaker,
             "start": round(turn.start, 3),
@@ -36,5 +41,5 @@ def run_diarization(audio_path, session_folder):
     with open(output_path, 'w', encoding='utf-8') as f:
         json.dump(segments, f, ensure_ascii=False, indent=2)
 
-    print(f"Diarisation : {len(segments)} segments → {output_path}")
+    print(f"Diarisation : {len(segments)} segments -> {output_path}")
     return output_path
