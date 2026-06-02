@@ -7,6 +7,25 @@ sys.path.append(os.path.dirname(__file__))
 from config import SAMPLE_RATE
 import database as db
 
+
+def _resolve_chunk_path_for_docker(path_value):
+    if not path_value:
+        return None
+
+    normalized = str(path_value).replace('\\', '/')
+
+    if normalized.startswith('/app/data/'):
+        return normalized
+
+    if os.path.isabs(normalized) and os.path.exists(normalized):
+        return normalized
+
+    normalized = normalized.lstrip('/')
+    if normalized.startswith('data/'):
+        normalized = normalized[len('data/'):]
+
+    return os.path.join('/app/data', normalized)
+
 def prepare_audio(session_id, session_folder):
     """
     Récupère le final.wav déjà créé par l'agent Windows.
@@ -28,7 +47,7 @@ def prepare_audio(session_id, session_folder):
 
 def _rebuild_from_chunks(session_id, audio_folder):
     # 1. On extrait le nom du dossier de session (ex: Réunion_20260601_112249)
-    session_name = os.path.basename(os.path.normpath(audio_folder))
+    session_name = os.path.basename(os.path.normpath(os.path.dirname(audio_folder)))
     
     # 2. On reconstruit le dossier cible correct pour Docker
     docker_audio_folder = os.path.join('/app/data', 'sessions', session_name, 'audio')
@@ -48,7 +67,7 @@ def _rebuild_from_chunks(session_id, audio_folder):
     all_audio = []
     for row in rows:
         # Chemin absolu Linux dans le conteneur pour lire les morceaux
-        full_chunk_path = os.path.join('/app/data', row['file_path'])
+        full_chunk_path = _resolve_chunk_path_for_docker(row['file_path'])
         
         if os.path.exists(full_chunk_path):
             data, _ = sf.read(full_chunk_path)

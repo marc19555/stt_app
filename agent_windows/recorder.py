@@ -7,7 +7,7 @@ import threading
 from datetime import datetime
 
 sys.path.append(os.path.dirname(__file__))
-from config import SAMPLE_RATE, CHANNELS, CHUNK_DURATION
+from config import SAMPLE_RATE, CHANNELS, CHUNK_DURATION, DATA_DIR
 import database as db
 
 class Recorder:
@@ -66,8 +66,7 @@ class Recorder:
         os.makedirs(audio_folder, exist_ok=True)
         filepath = os.path.join(audio_folder, filename)
         sf.write(filepath, audio, SAMPLE_RATE)
-        session_name = os.path.basename(os.path.normpath(self.session_folder))
-        relative_path = f"sessions/{session_name}/audio/{filename}"
+        relative_path = os.path.relpath(filepath, DATA_DIR).replace('\\', '/')
 
         conn = db.get_connection()
         conn.execute("""

@@ -39,16 +39,13 @@ def _format_transcript(segments):
 def _generate_chunk_pv(segments, chunk_index, total_chunks):
     """Génère un PV partiel pour un chunk de transcript"""
     transcript_text = _format_transcript(segments)
-    prompt = f"""Tu es un assistant spécialisé dans la rédaction de procès-verbaux de réunions professionnelles.
+    prompt = f"""Tu es un assistant spécialisé dans le nettoyage de texte.
 
 Voici une partie ({chunk_index}/{total_chunks}) de la transcription d'une réunion :
 
 {transcript_text}
 
-Rédige un procès-verbal structuré pour cette partie avec :
-- Les points abordés
-- Les décisions prises
-- Les actions à réaliser (avec responsable si mentionné)
+reprends cette partie de la reunion en la nettoyant : corrige les erreurs de transcription, supprime les hésitations ("euh", "hum", etc.) et les redondances, et reformule les phrases pour que le résultat soit fluide et facile à lire.
 
 Sois concis et professionnel. Réponds en français."""
 

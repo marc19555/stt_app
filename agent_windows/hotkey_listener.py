@@ -17,7 +17,7 @@ class HotkeyListener:
         try:
             if self.session_manager.current_session_id is None:
                 session_id = self.session_manager.start_session()
-                folder = os.path.join(SESSIONS_DIR, f"session_{session_id}")
+                folder = self.session_manager.current_session_folder
                 self.recorder = Recorder(folder, session_id)
                 self.recorder.start()
                 bip_start()

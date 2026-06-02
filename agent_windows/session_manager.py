@@ -5,11 +5,39 @@ from datetime import datetime
 sys.path.append(os.path.dirname(__file__))
 import database as db
 
-SESSIONS_ROOT = os.path.join(os.path.dirname(__file__), '..', 'data', 'sessions')
+DATA_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'data'))
+SESSIONS_ROOT = os.path.join(DATA_ROOT, 'sessions')
+
+
+def _resolve_session_folder(folder_path):
+    """Resolve legacy or relative DB folder paths to an absolute local path."""
+    if not folder_path:
+        return None
+
+    normalized = str(folder_path).replace('\\', '/')
+
+    if os.path.isabs(folder_path) and os.path.exists(folder_path):
+        return folder_path
+
+    if normalized.startswith('data/'):
+        normalized = normalized[len('data/'):]
+
+    if normalized.startswith('sessions/'):
+        return os.path.join(DATA_ROOT, normalized)
+
+    marker = '/data/'
+    idx = normalized.lower().find(marker)
+    if idx != -1:
+        tail = normalized[idx + len(marker):]
+        if tail.startswith('sessions/'):
+            return os.path.join(DATA_ROOT, tail)
+
+    return os.path.join(SESSIONS_ROOT, os.path.basename(normalized))
 
 class SessionManager:
     def __init__(self):
         self.current_session_id = None
+        self.current_session_folder = None
 
     def start_session(self, title=None):
         if self.current_session_id is not None:
@@ -19,17 +47,19 @@ class SessionManager:
         if not title:
             title = f"Réunion_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
 
-        folder = os.path.join(SESSIONS_ROOT, title)
-        os.makedirs(folder, exist_ok=True)
+        folder_abs = os.path.join(SESSIONS_ROOT, title)
+        folder_rel = f"sessions/{title}"
+        os.makedirs(folder_abs, exist_ok=True)
 
         conn = db.get_connection()
         c = conn.cursor()
         c.execute("""
             INSERT INTO sessions (title, started_at, status, folder_path)
             VALUES (?, datetime('now'), 'recording', ?)
-        """, (title, folder))
+        """, (title, folder_rel))
         conn.commit()
         self.current_session_id = c.lastrowid
+        self.current_session_folder = folder_abs
         conn.close()
 
         print(f"Session démarrée : {title} (id={self.current_session_id})")
@@ -46,7 +76,7 @@ class SessionManager:
         row = conn.execute("SELECT folder_path FROM sessions WHERE id = ?",
                            (self.current_session_id,)).fetchone()
         conn.close()
-        merge_chunks(self.current_session_id, row['folder_path'])
+        merge_chunks(self.current_session_id, _resolve_session_folder(row['folder_path']))
 
         # Met à jour le statut + crée le job
         conn = db.get_connection()
@@ -64,6 +94,7 @@ class SessionManager:
 
         print(f"Session arrêtée (id={self.current_session_id}) → job créé")
         self.current_session_id = None
+        self.current_session_folder = None
 
 
 # Test
