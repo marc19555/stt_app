@@ -4,7 +4,7 @@ import json
 import requests
 
 sys.path.append(os.path.dirname(__file__))
-from config import OLLAMA_URL, OLLAMA_MODEL
+from config import OLLAMA_URL, OLLAMA_MODEL, PV_PREDICT,PV_TEMPERATURE,GOLBAL_CTX,PV_TIMEOUT
 
 # Nombre de segments par chunk (pour les longues réunions)
 SEGMENTS_PER_CHUNK = 50
@@ -16,9 +16,15 @@ def _ask_ollama(prompt):
         json={
             "model": OLLAMA_MODEL,
             "prompt": prompt,
-            "stream": False
+            "stream": False,
+            "think": False,
+            "options": {
+                "temperature": PV_TEMPERATURE,
+                "num_predict": PV_PREDICT,
+                "num_ctx": GOLBAL_CTX
+            }
         },
-        timeout=120
+        timeout=PV_TIMEOUT
     )
     response.raise_for_status()
     return response.json()['response'].strip()

@@ -4,7 +4,7 @@ import json
 import requests
 
 sys.path.append(os.path.dirname(__file__))
-from config import OLLAMA_URL, OLLAMA_MODEL
+from config import OLLAMA_URL, OLLAMA_MODEL, SUMMARY_TEMPERATURE, SUMMARY_PREDICT, GOLBAL_CTX, SUMMARY_TIMEOUT
 
 def _ask_ollama(prompt):
     response = requests.post(
@@ -12,9 +12,15 @@ def _ask_ollama(prompt):
         json={
             "model": OLLAMA_MODEL,
             "prompt": prompt,
-            "stream": False
+            "stream": False,
+            "think": False,
+            "options": {
+                "temperature": SUMMARY_TEMPERATURE,
+                "num_predict": SUMMARY_PREDICT,
+                "num_ctx": GOLBAL_CTX
+            }
         },
-        timeout=120
+        timeout=SUMMARY_TIMEOUT
     )
     response.raise_for_status()
     return response.json()['response'].strip()

@@ -24,6 +24,18 @@ HF_TOKEN = os.getenv('HF_TOKEN')
 OLLAMA_URL = 'http://host.docker.internal:11434'
 OLLAMA_MODEL = 'qwen3.5:4b'
 
+# Paramètres spécifiques a ollama pour PV et résumé
+PV_TEMPERATURE = 0.1
+SUMMARY_TEMPERATURE = 0.3
+
+PV_PREDICT = 500
+SUMMARY_PREDICT = 500
+
+PV_TIMEOUT = 3000
+SUMMARY_TIMEOUT = 500
+
+GOLBAL_CTX = 4096
+
 # Worker
 POLL_INTERVAL = 10 # secondes entre chaque vérification des jobs
 
