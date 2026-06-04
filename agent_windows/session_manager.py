@@ -70,13 +70,15 @@ class SessionManager:
             print("Aucune session en cours")
             return
 
+        session_id = self.current_session_id
+
         # Merge les chunks
         from audio_chunker import merge_chunks
         conn = db.get_connection()
         row = conn.execute("SELECT folder_path FROM sessions WHERE id = ?",
-                           (self.current_session_id,)).fetchone()
+                           (session_id,)).fetchone()
         conn.close()
-        merge_chunks(self.current_session_id, _resolve_session_folder(row['folder_path']))
+        merge_chunks(session_id, _resolve_session_folder(row['folder_path']))
 
         # Met à jour le statut + crée le job
         conn = db.get_connection()
@@ -84,15 +86,15 @@ class SessionManager:
             UPDATE sessions
             SET stopped_at = datetime('now'), status = 'recording_done'
             WHERE id = ?
-        """, (self.current_session_id,))
+        """, (session_id,))
         conn.execute("""
             INSERT INTO jobs (session_id, job_type, status, priority)
             VALUES (?, 'full_pipeline', 'pending', 1)
-        """, (self.current_session_id,))
+        """, (session_id,))
         conn.commit()
         conn.close()
 
-        print(f"Session arrêtée (id={self.current_session_id}) → job créé")
+        print(f"Session arrêtée (id={session_id}) → job créé")
         self.current_session_id = None
         self.current_session_folder = None
 

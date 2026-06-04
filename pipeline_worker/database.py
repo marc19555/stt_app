@@ -1,9 +1,39 @@
 import sqlite3
 import os
 import sys
+from datetime import datetime
 
 sys.path.append(os.path.dirname(__file__))
 from config import DB_PATH, MAX_RETRY as MAX_RETRIES
+
+
+def _resolve_session_folder(folder_path):
+    if not folder_path:
+        return None
+
+    normalized = str(folder_path).replace('\\', '/')
+
+    if normalized.startswith('/app/data/'):
+        return normalized
+
+    if os.path.isabs(folder_path) and os.path.exists(folder_path):
+        return folder_path
+
+    relative = normalized.lstrip('/')
+    if relative.startswith('data/'):
+        relative = relative[len('data/'):]
+
+    if relative.startswith('sessions/'):
+        return os.path.join('/app/data', relative)
+
+    marker = '/data/'
+    idx = normalized.lower().find(marker)
+    if idx != -1:
+        tail = normalized[idx + len(marker):]
+        if tail.startswith('sessions/'):
+            return os.path.join('/app/data', tail)
+
+    return os.path.join('/app/data', 'sessions', os.path.basename(relative))
 
 def get_connection():
     conn = sqlite3.connect(DB_PATH)
@@ -95,3 +125,44 @@ def save_artifact(session_id, artifact_type, file_path):
     """, (session_id, artifact_type, file_path))
     conn.commit()
     conn.close()
+
+
+def archive_successful_session(session_id):
+    """
+    Archive une session terminee avec succes:
+    - Supprime le dossier audio/ sur disque (gros fichiers WAV).
+    - Conserve outputs/ et tous les JSON sur disque.
+    - Supprime audio_chunks, jobs, artifacts, speakers en BDD.
+    - Conserve la ligne session avec status='archived' pour l'historique.
+    """
+    conn = get_connection()
+    session = conn.execute(
+        "SELECT id, status, folder_path FROM sessions WHERE id = ?",
+        (session_id,)
+    ).fetchone()
+
+    if session is None:
+        conn.close()
+        return False, "session introuvable"
+
+    if session['status'] != 'done':
+        conn.close()
+        return False, f"statut non archivable: {session['status']}"
+
+    # Nettoyage des lignes liees en BDD.
+    conn.execute("DELETE FROM audio_chunks WHERE session_id = ?", (session_id,))
+    conn.execute("DELETE FROM artifacts  WHERE session_id = ?", (session_id,))
+    conn.execute("DELETE FROM speakers   WHERE session_id = ?", (session_id,))
+    conn.execute("DELETE FROM jobs       WHERE session_id = ?", (session_id,))
+
+    # Conservation de la session avec status='archived' pour l'historique.
+    # NOTE: le dossier audio/ est conserve sur disque pour verification qualite.
+    conn.execute(
+        "UPDATE sessions SET status = 'archived' WHERE id = ?",
+        (session_id,)
+    )
+    conn.commit()
+    conn.close()
+
+    session_folder = _resolve_session_folder(session['folder_path'])
+    return True, f"BDD nettoyee, audio/ conserve sur disque ({session_folder})"

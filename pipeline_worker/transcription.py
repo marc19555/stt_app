@@ -34,7 +34,6 @@ def run_transcription(audio_path, session_folder):
             "end": round(segment.end, 3),
             "text": segment.text.strip()
         })
-        print(f" [{segment.start:.1f}s → {segment.end:.1f}s] {segment.text.strip()}")
 
     with open(output_path, 'w', encoding='utf-8') as f:
         json.dump(transcript, f, ensure_ascii=False, indent=2)

@@ -35,6 +35,8 @@ def merge_speakers(diarization_path, transcription_path, session_folder):
     with open(output_path, 'w', encoding='utf-8') as f:
         json.dump(merged, f, ensure_ascii=False, indent=2)
 
+    for seg in merged:
+        print(f" [{seg['speaker']}] [{seg['start']:.1f}s → {seg['end']:.1f}s] {seg['text']}")
     print(f"Fusion : {len(merged)} segments → {output_path}")
     return output_path
 

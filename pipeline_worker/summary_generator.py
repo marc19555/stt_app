@@ -53,8 +53,8 @@ Voici le procès-verbal d'une réunion ({nb_speakers} participants, {duration_mi
 
 Génère un résumé structuré avec exactement ces sections :
 
-## Résumé exécutif
-(2-3 phrases maximum)
+## Résumé thématique
+(10 thématiques maximum)
 
 ## Points clés abordés
 (liste à puces,)

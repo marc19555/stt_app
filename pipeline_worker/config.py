@@ -41,3 +41,11 @@ POLL_INTERVAL = 10 # secondes entre chaque vérification des jobs
 
 MAX_RETRY = 3 # Nombre maximum de tentatives pour un job avant de le marquer comme échoué
 
+# Monitoring RAM (en secondes): frequence d'affichage pendant une etape en cours.
+RAM_LOG_INTERVAL = float(os.getenv('RAM_LOG_INTERVAL', '5'))
+
+# URL du serveur RAM de l'agent Windows (mesure la RAM de la machine hote).
+HOST_RAM_URL = os.getenv('HOST_RAM_URL', 'http://host.docker.internal:8765/ram')
+
+
+

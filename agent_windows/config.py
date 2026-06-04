@@ -10,6 +10,8 @@ DB_PATH = os.path.join(DATA_DIR, 'stt_app.db')
 SAMPLE_RATE = 16000 # Hz — optimal pour Whisper
 CHANNELS = 1 # mono
 CHUNK_DURATION = 300 # secondes (5 min)
+MAX_RECORDING_DURATION = 4 * 60 * 60 # secondes (4 h)
+HOST_RAM_SERVER_PORT = int(os.getenv('HOST_RAM_SERVER_PORT', '8765'))
 
 # Hotkey
 HOTKEY = 'f12'
