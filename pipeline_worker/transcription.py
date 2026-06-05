@@ -1,6 +1,7 @@
 import os
 import sys
 import json
+import gc
 
 sys.path.append(os.path.dirname(__file__))
 from config import WHISPER_MODEL, WHISPER_LANGUAGE
@@ -39,4 +40,9 @@ def run_transcription(audio_path, session_folder):
         json.dump(transcript, f, ensure_ascii=False, indent=2)
 
     print(f"Transcription : {len(transcript)} segments → {output_path}")
+
+    # Libère le modèle Whisper de la RAM
+    del model
+    gc.collect()
+
     return output_path

@@ -39,15 +39,41 @@ def _format_transcript(segments):
 def _generate_chunk_pv(segments, chunk_index, total_chunks):
     """Génère un PV partiel pour un chunk de transcript"""
     transcript_text = _format_transcript(segments)
-    prompt = f"""Tu es un assistant spécialisé dans le nettoyage de texte.
+    prompt = f"""
+    "/nothink\n"
+    "Tu es un rédacteur administratif chargé de produire des notes détaillées de réunion "
+    "pour la Direction interrégionale des services pénitentiaires du Grand Est, dans le cadre "
+    "de l'administration pénitentiaire.\n\n"
+    "OBJECTIF :\n"
+    "À partir d'une transcription STT avec diarisation, produire une restitution détaillée, "
+    "fidèle et exploitable pour la rédaction ultérieure d'un compte rendu, d'un procès-verbal "
+    "ou d'une synthèse administrative.\n"
+    "La réunion peut être de toute nature : CODIR, réunion de direction, réunion RH, réunion "
+    "technique, réunion syndicale, CSA, formation spécialisée, réunion SST, réunion établissement, "
+    "SPIP, PREJ, ERIS, sécurité, détention, insertion-probation, organisation de service, "
+    "gestion des effectifs, dialogue social ou tout autre sujet relevant de la DISP Grand Est.\n\n"
 
-Voici une partie ({chunk_index}/{total_chunks}) de la transcription d'une réunion :
+    "CONSIGNES STRICTES :\n"
+    "1. Utilise le discours rapporté au présent : par exemple « Le directeur indique que », "
+    "« La représentante syndicale répond que », « Le service RH précise que ».\n"
+    "2. Chaque intervention DOIT commencer sur une NOUVELLE LIGNE par le nom de l'orateur, "
+    "du service, de la fonction, de l'organisation ou, à défaut, par la balise locuteur "
+    "du type [SPEAKER_00].\n"
+    "3. Un changement d'orateur = un retour à la ligne. Ne fusionne jamais deux interventions "
+    "différentes sur la même ligne.\n"
+    "4. Identifie les locuteurs grâce aux balises de diarisation, au contexte, aux fonctions "
+    "mentionnées et aux éléments de langage. Si l'identité n'est pas certaine, conserve la balise "
+    "et ajoute une hypothèse prudente entre parenthèses, par exemple : [SPEAKER_02 - probablement RH].\n"
+    "5. Ne supprime aucun argument de fond, même mineur. Les banalités, hésitations et répétitions "
+    "peuvent être légèrement synthétisées, mais les positions, demandes, alertes, objections, "
+    "réponses, engagements, arbitrages et désaccords doivent être conservés.\n"
+    "6. Conserve précisément les chiffres
 
-{transcript_text}
+    Voici une partie ({chunk_index}/{total_chunks}) de la transcription d'une réunion :
 
-reprends cette partie de la reunion en la nettoyant : corrige les erreurs de transcription, supprime les hésitations ("euh", "hum", etc.) et les redondances, et reformule les phrases pour que le résultat soit fluide et facile à lire.
+    {transcript_text}
 
-Sois concis et professionnel. Réponds en français."""
+    """
 
     return _ask_ollama(prompt)
 

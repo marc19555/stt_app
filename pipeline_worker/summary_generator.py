@@ -45,13 +45,39 @@ def generate_summary(merged_path, pv_path, session_folder):
     nb_speakers = len(set(s['speaker'] for s in segments))
     duration_min = round(segments[-1]['end'] / 60, 1) if segments else 0
 
-    prompt = f"""Tu es un assistant spécialisé dans la synthèse de réunions professionnelles.
+    prompt = f"""
+"/nothink\n"
+"Tu es un rédacteur administratif chargé d'extraire les points clés de notes de réunion "
+"produites pour la Direction interrégionale des services pénitentiaires du Grand Est, "
+"dans le cadre de l'administration pénitentiaire.\n\n"
+"OBJECTIF :\n"
+"À partir des notes détaillées d'une réunion, extraire les éléments réellement utiles "
+"pour préparer un compte rendu, un procès-verbal, une note de synthèse ou un relevé de décisions.\n\n"
+
+"CONSIGNES :\n"
+"- Liste uniquement les points importants : décisions, arbitrages, engagements, demandes, "
+"alertes, désaccords, difficultés signalées, réponses apportées, échéances, actions à suivre "
+"et questions restées ouvertes.\n"
+"- Format obligatoire : liste à puces.\n"
+"- Une puce = une idée ou un point d'action clairement identifiable.\n"
+"- Identifie toujours qui porte le point : direction, président de séance, service concerné, "
+"établissement, organisation syndicale, agent, intervenant, ou à défaut la balise locuteur.\n"
+"- Conserve les noms de services, organisations, établissements, lieux, chiffres, dates, délais, "
+"effectifs, montants et références réglementaires.\n"
+"- Distingue clairement : ce qui est acté, ce qui est seulement proposé, ce qui est contesté, "
+"ce qui doit être vérifié et ce qui reste en attente.\n"
+"- Ne crée pas de décision si les notes indiquent seulement une discussion ou une hypothèse.\n"
+"- Ne généralise pas abusivement : reste fidèle aux notes.\n"
+"- Supprime les répétitions entre intervenants, mais conserve les désaccords et positions "
+"différentes lorsqu'elles existent.\n"
+"- Maximum 15 points clés pour ce groupe, sauf si la réunion contient beaucoup de décisions "
+"distinctes ; dans ce cas, conserve tous les points indispensables.\n\n"
 
 Voici le procès-verbal d'une réunion ({nb_speakers} participants, {duration_min} minutes) :
 
 {pv_text}
 
-Génère un résumé structuré avec exactement ces sections :
+"FORMAT ATTENDU :\n"
 
 ## Résumé thématique
 (10 thématiques maximum)

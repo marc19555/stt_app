@@ -1,6 +1,7 @@
 import os
 import sys
 import json
+import gc
 
 sys.path.append(os.path.dirname(__file__))
 from config import PYANNOTE_MODEL, HF_TOKEN
@@ -60,4 +61,15 @@ def run_diarization(audio_path, session_folder):
 
     speakers_str = ", ".join(f"{k}->{v}" for k, v in speaker_map.items())
     print(f"Diarisation : {len(segments)} segments, {len(speaker_map)} speaker(s) [{speakers_str}] -> {output_path}")
+
+    # Libère le modèle pyannote (torch) de la RAM
+    del pipeline
+    del diarization
+    gc.collect()
+    try:
+        import torch
+        torch.cuda.empty_cache()
+    except Exception:
+        pass
+
     return output_path
