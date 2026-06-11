@@ -18,3 +18,13 @@ def bip_error():
     """Triple bip grave = erreur"""
     for _ in range(3):
         winsound.Beep(300, 200)
+
+def bip_usb_detected():
+    """Triple bip monté = clé USB détectée"""
+    for freq in (600, 800, 1000):
+        winsound.Beep(freq, 150)
+
+def bip_usb_done():
+    """Double bip = copie USB terminée"""
+    winsound.Beep(1000, 200)
+    winsound.Beep(1200, 300)

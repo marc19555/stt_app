@@ -5,8 +5,14 @@ services:
       dockerfile: Dockerfile
     volumes:
       - ./data:/app/data
+      - hf_cache:/root/.cache/huggingface
     env_file:
       - .env.local
+    environment:
+      HF_HOME: /root/.cache/huggingface
     extra_hosts:
       - "host.docker.internal:host-gateway"
     restart: unless-stopped
+
+volumes:
+  hf_cache:

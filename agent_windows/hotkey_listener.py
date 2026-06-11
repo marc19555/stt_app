@@ -111,6 +111,9 @@ if __name__ == "__main__":
 
     start_ram_server()
 
+    from usb_listener import UsbListener
+    UsbListener().start()
+
     instance_lock = SingleInstanceLock("stt_agent_windows.lock")
     if not instance_lock.acquire():
         print("Une instance de l'agent Windows est deja en cours d'execution.")

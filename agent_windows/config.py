@@ -16,6 +16,9 @@ HOST_RAM_SERVER_PORT = int(os.getenv('HOST_RAM_SERVER_PORT', '8765'))
 # Hotkey
 HOTKEY = 'f12'
 
+# Clé USB
+USB_TARGET_LABEL = 'RESUMER'  # Label exact de la clé USB (insensible à la casse)
+
 # Bips
 BIP_START_FREQ = 1000 # Hz — aigu = démarrage
 BIP_START_DUR = 200 # ms

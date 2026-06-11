@@ -8,6 +8,7 @@ import urllib.request
 sys.path.append(os.path.dirname(__file__))
 import database as db
 from config import DATA_DIR, RAM_LOG_INTERVAL, HOST_RAM_URL
+from ollama_client import unload_model
 
 
 def _fetch_host_ram():
@@ -107,91 +108,100 @@ def run_pipeline(session_id, session):
     _print_global_ram_usage("pipeline", "debut")
     step_times = {}
     total_start = time.perf_counter()
+    try:
+        # Étape 1 — Prépare l'audio
+        print("Préparation audio...")
+        _print_global_ram_usage("prepare_audio", "avant")
+        from audio_preprocess import prepare_audio
+        audio_path, step_times['prepare_audio'] = _run_with_ram_monitor(
+            "prepare_audio",
+            lambda: prepare_audio(session_id, folder)
+        )
+        _print_global_ram_usage("prepare_audio", "apres")
+        print(f"Préparation audio terminée en {step_times['prepare_audio']:.2f}s")
 
-    # Étape 1 — Prépare l'audio
-    print("Préparation audio...")
-    _print_global_ram_usage("prepare_audio", "avant")
-    from audio_preprocess import prepare_audio
-    audio_path, step_times['prepare_audio'] = _run_with_ram_monitor(
-        "prepare_audio",
-        lambda: prepare_audio(session_id, folder)
-    )
-    _print_global_ram_usage("prepare_audio", "apres")
-    print(f"Préparation audio terminée en {step_times['prepare_audio']:.2f}s")
+        # Étape 2 — Diarisation
+        print("Diarisation...")
+        _print_global_ram_usage("diarization", "avant")
+        from diarization import run_diarization
+        diarization_path, step_times['diarization'] = _run_with_ram_monitor(
+            "diarization",
+            lambda: run_diarization(audio_path, folder)
+        )
+        _print_global_ram_usage("diarization", "apres")
+        print(f"Diarisation terminée en {step_times['diarization']:.2f}s")
 
-    # Étape 2 — Diarisation
-    print("Diarisation...")
-    _print_global_ram_usage("diarization", "avant")
-    from diarization import run_diarization
-    diarization_path, step_times['diarization'] = _run_with_ram_monitor(
-        "diarization",
-        lambda: run_diarization(audio_path, folder)
-    )
-    _print_global_ram_usage("diarization", "apres")
-    print(f"Diarisation terminée en {step_times['diarization']:.2f}s")
+        # Étape 3 — Transcription
+        print("Transcription...")
+        _print_global_ram_usage("transcription", "avant")
+        from transcription import run_transcription
+        transcription_path, step_times['transcription'] = _run_with_ram_monitor(
+            "transcription",
+            lambda: run_transcription(audio_path, folder)
+        )
+        _print_global_ram_usage("transcription", "apres")
+        print(f"Transcription terminée en {step_times['transcription']:.2f}s")
 
-    # Étape 3 — Transcription
-    print("Transcription...")
-    _print_global_ram_usage("transcription", "avant")
-    from transcription import run_transcription
-    transcription_path, step_times['transcription'] = _run_with_ram_monitor(
-        "transcription",
-        lambda: run_transcription(audio_path, folder)
-    )
-    _print_global_ram_usage("transcription", "apres")
-    print(f"Transcription terminée en {step_times['transcription']:.2f}s")
+        # Étape 4 — Fusion speakers + texte
+        print("Fusion speakers...")
+        _print_global_ram_usage("merge_speakers", "avant")
+        from speaker_merger import merge_speakers
+        merged_path, step_times['merge_speakers'] = _run_with_ram_monitor(
+            "merge_speakers",
+            lambda: merge_speakers(diarization_path, transcription_path, folder)
+        )
+        _print_global_ram_usage("merge_speakers", "apres")
+        print(f"Fusion speakers terminée en {step_times['merge_speakers']:.2f}s")
 
-    # Étape 4 — Fusion speakers + texte
-    print("Fusion speakers...")
-    _print_global_ram_usage("merge_speakers", "avant")
-    from speaker_merger import merge_speakers
-    merged_path, step_times['merge_speakers'] = _run_with_ram_monitor(
-        "merge_speakers",
-        lambda: merge_speakers(diarization_path, transcription_path, folder)
-    )
-    _print_global_ram_usage("merge_speakers", "apres")
-    print(f"Fusion speakers terminée en {step_times['merge_speakers']:.2f}s")
+        # Étape 5 — Génération PV
+        print("Génération PV...")
+        _print_global_ram_usage("generate_pv", "avant")
+        from pv_generator import generate_pv
+        pv_path, step_times['generate_pv'] = _run_with_ram_monitor(
+            "generate_pv",
+            lambda: generate_pv(merged_path, folder)
+        )
+        _print_global_ram_usage("generate_pv", "apres")
+        print(f"Génération PV terminée en {step_times['generate_pv']:.2f}s")
+        db.save_artifact(session_id, 'pv', pv_path)
 
-    # Étape 5 — Génération PV
-    print("Génération PV...")
-    _print_global_ram_usage("generate_pv", "avant")
-    from pv_generator import generate_pv
-    pv_path, step_times['generate_pv'] = _run_with_ram_monitor(
-        "generate_pv",
-        lambda: generate_pv(merged_path, folder)
-    )
-    _print_global_ram_usage("generate_pv", "apres")
-    print(f"Génération PV terminée en {step_times['generate_pv']:.2f}s")
-    db.save_artifact(session_id, 'pv', pv_path)
+        # Étape 6 — Résumé
+        print("Génération résumé...")
+        _print_global_ram_usage("generate_summary", "avant")
+        from summary_generator import generate_summary
+        summary_path, step_times['generate_summary'] = _run_with_ram_monitor(
+            "generate_summary",
+            lambda: generate_summary(merged_path, pv_path, folder)
+        )
+        _print_global_ram_usage("generate_summary", "apres")
+        print(f"Génération résumé terminée en {step_times['generate_summary']:.2f}s")
+        db.save_artifact(session_id, 'summary', summary_path)
 
-    # Étape 6 — Résumé
-    print("Génération résumé...")
-    _print_global_ram_usage("generate_summary", "avant")
-    from summary_generator import generate_summary
-    summary_path, step_times['generate_summary'] = _run_with_ram_monitor(
-        "generate_summary",
-        lambda: generate_summary(merged_path, pv_path, folder)
-    )
-    _print_global_ram_usage("generate_summary", "apres")
-    print(f"Génération résumé terminée en {step_times['generate_summary']:.2f}s")
-    db.save_artifact(session_id, 'summary', summary_path)
+        # Étape 7 — Export
+        print("Export fichiers...")
+        _print_global_ram_usage("export", "avant")
+        from exporter import export_all
+        _, step_times['export'] = _run_with_ram_monitor(
+            "export",
+            lambda: export_all(session_id, folder, merged_path, pv_path, summary_path)
+        )
+        _print_global_ram_usage("export", "apres")
+        print(f"Export terminé en {step_times['export']:.2f}s")
 
-    # Étape 7 — Export
-    print("Export fichiers...")
-    _print_global_ram_usage("export", "avant")
-    from exporter import export_all
-    _, step_times['export'] = _run_with_ram_monitor(
-        "export",
-        lambda: export_all(session_id, folder, merged_path, pv_path, summary_path)
-    )
-    _print_global_ram_usage("export", "apres")
-    print(f"Export terminé en {step_times['export']:.2f}s")
+        total_time = time.perf_counter() - total_start
+        print("\n--- Temps pipeline ---")
+        for name, duration in step_times.items():
+            print(f"{name}: {duration:.2f}s")
+        print(f"TOTAL: {total_time:.2f}s")
+        _print_global_ram_usage("pipeline", "fin")
 
-    total_time = time.perf_counter() - total_start
-    print("\n--- Temps pipeline ---")
-    for name, duration in step_times.items():
-        print(f"{name}: {duration:.2f}s")
-    print(f"TOTAL: {total_time:.2f}s")
-    _print_global_ram_usage("pipeline", "fin")
-
-    print(f"Pipeline terminé — session {session_id}")
+        print(f"Pipeline terminé — session {session_id}")
+    finally:
+        print("Déchargement du modèle Ollama...")
+        _print_global_ram_usage("ollama_unload", "avant")
+        try:
+            done_reason = unload_model()
+            print(f"Modèle Ollama déchargé ({done_reason})")
+        except Exception as exc:
+            print(f"Déchargement Ollama impossible: {exc}")
+        _print_global_ram_usage("ollama_unload", "apres")
