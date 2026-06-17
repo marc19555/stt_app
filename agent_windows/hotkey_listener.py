@@ -8,8 +8,8 @@ import threading
 sys.path.append(os.path.dirname(__file__))
 from simple_logger import setup_daily_console_log
 from session_manager import SessionManager
-from recorder import Recorder
-from notifier import bip_start, bip_stop, bip_error
+from recorder import Recorder, has_audio_input_device
+from notifier import bip_start, bip_stop, bip_error, bip_no_device
 from ram_server import start_ram_server
 from config import HOTKEY, MAX_RECORDING_DURATION
 
@@ -82,13 +82,31 @@ class HotkeyListener:
         with self.state_lock:
             self._stop_current_recording("Duree maximale atteinte (4h) : enregistrement arrete automatiquement.")
 
+    def _on_recording_error(self, error_message):
+        with self.state_lock:
+            if self.session_manager.current_session_id is not None:
+                print(f"[ERREUR] Arrêt forcé de l'enregistrement en raison d'un problème matériel : {error_message}")
+                self._cancel_auto_stop_timer()
+                
+                # Arrête la session proprement sans appeler recorder.stop() pour éviter le deadlock de thread join.
+                self.session_manager.stop_session()
+                self.recorder = None
+                
+                # Joue le signal sonore spécifique de périphérique manquant/déconnecté
+                bip_no_device()
+
     def _on_f12(self):
         with self.state_lock:
             try:
                 if self.session_manager.current_session_id is None:
+                    if not has_audio_input_device():
+                        print("[ERREUR] Tentative d'enregistrement sans périphérique d'entrée audio. Veuillez brancher un microphone.")
+                        bip_no_device()
+                        return
+
                     session_id = self.session_manager.start_session()
                     folder = self.session_manager.current_session_folder
-                    self.recorder = Recorder(folder, session_id)
+                    self.recorder = Recorder(folder, session_id, on_error_callback=self._on_recording_error)
                     self.recorder.start()
                     self._start_auto_stop_timer()
                     bip_start()
@@ -119,6 +137,10 @@ if __name__ == "__main__":
         print("Une instance de l'agent Windows est deja en cours d'execution.")
         bip_error()
         sys.exit(1)
+
+    # Vérification du microphone au démarrage de l'agent
+    if not has_audio_input_device():
+        print("[ATTENTION] Aucun périphérique d'entrée audio (microphone) détecté au démarrage. Veuillez brancher un microphone.")
 
     try:
         listener = HotkeyListener()

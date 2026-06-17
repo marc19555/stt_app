@@ -10,14 +10,31 @@ sys.path.append(os.path.dirname(__file__))
 from config import SAMPLE_RATE, CHANNELS, CHUNK_DURATION, DATA_DIR
 import database as db
 
+def has_audio_input_device() -> bool:
+    """Vérifie si au moins un périphérique d'entrée audio est détecté."""
+    try:
+        # Réinitialise PortAudio pour actualiser la liste des périphériques USB branchés à chaud
+        try:
+            sd._terminate()
+            sd._initialize()
+        except Exception as e:
+            print(f"[WARNING] Impossible de réinitialiser sounddevice : {e}")
+
+        devices = sd.query_devices()
+        return any(d.get('max_input_channels', 0) > 0 for d in devices)
+    except Exception as e:
+        print(f"[ERREUR] Échec de la recherche de périphériques audio : {e}")
+        return False
+
 class Recorder:
-    def __init__(self, session_folder, session_id):
+    def __init__(self, session_folder, session_id, on_error_callback=None):
         self.session_folder: str = session_folder
         self.session_id: int = session_id
         self.is_recording: bool = False
         self.frames: list = []
         self.chunk_index: int = 0
         self.thread = None
+        self.on_error_callback = on_error_callback
 
     def start(self):
         os.makedirs(self.session_folder, exist_ok=True)
@@ -37,25 +54,30 @@ class Recorder:
         chunk_frames = []
         chunk_start = datetime.now()
 
-        with sd.InputStream(samplerate=SAMPLE_RATE, channels=CHANNELS, dtype='float32') as stream:
-            while self.is_recording:
-                data, _ = stream.read(SAMPLE_RATE)
-                chunk_frames.append(data)
+        try:
+            with sd.InputStream(samplerate=SAMPLE_RATE, channels=CHANNELS, dtype='float32') as stream:
+                while self.is_recording:
+                    data, _ = stream.read(SAMPLE_RATE)
+                    chunk_frames.append(data)
 
-                elapsed = (datetime.now() - chunk_start).seconds
-                if elapsed >= CHUNK_DURATION:
-                    chunk_end = datetime.now()
-                    audio = np.concatenate(chunk_frames, axis=0)
-                    self._save_chunk(audio, chunk_start, chunk_end, elapsed)
-                    chunk_frames = []
-                    chunk_start = datetime.now()
+                    elapsed = (datetime.now() - chunk_start).seconds
+                    if elapsed >= CHUNK_DURATION:
+                        chunk_end = datetime.now()
+                        audio = np.concatenate(chunk_frames, axis=0)
+                        self._save_chunk(audio, chunk_start, chunk_end, elapsed)
+                        chunk_frames = []
+                        chunk_start = datetime.now()
 
-        # Sauvegarde le reste à l'arrêt
-        if chunk_frames:
-            chunk_end = datetime.now()
-            elapsed = (chunk_end - chunk_start).seconds
-            audio = np.concatenate(chunk_frames, axis=0)
-            self._save_chunk(audio, chunk_start, chunk_end, elapsed)
+            # Sauvegarde le reste à l'arrêt
+            if chunk_frames:
+                chunk_end = datetime.now()
+                elapsed = (chunk_end - chunk_start).seconds
+                audio = np.concatenate(chunk_frames, axis=0)
+                self._save_chunk(audio, chunk_start, chunk_end, elapsed)
+        except Exception as e:
+            print(f"[ERREUR] Le flux d'enregistrement a rencontré une erreur : {e}")
+            if self.on_error_callback:
+                self.on_error_callback(str(e))
 
     def _save_chunk(self, audio=None, start_time=None, end_time=None, duration=None):
         if audio is None:

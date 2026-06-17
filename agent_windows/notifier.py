@@ -28,3 +28,9 @@ def bip_usb_done():
     """Double bip = copie USB terminée"""
     winsound.Beep(1000, 200)
     winsound.Beep(1200, 300)
+
+def bip_no_device():
+    """Son d'avertissement explicite pour périphérique audio manquant/déconnecté"""
+    for _ in range(2):
+        winsound.Beep(800, 150)
+        winsound.Beep(400, 150)
