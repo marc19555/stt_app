@@ -14,9 +14,10 @@ def merge_speakers(diarization_path, transcription_path, session_folder):
     os.makedirs(output_folder, exist_ok=True)
     output_path = os.path.join(output_folder, 'transcript_speakers.json')
 
-    # Charge les deux fichiers
-    with open(diarization_path, 'r', encoding='utf-8') as f:
-        diarization = json.load(f)
+    diarization = []
+    if diarization_path:
+        with open(diarization_path, 'r', encoding='utf-8') as f:
+            diarization = json.load(f)
 
     with open(transcription_path, 'r', encoding='utf-8') as f:
         transcription = json.load(f)
@@ -24,7 +25,10 @@ def merge_speakers(diarization_path, transcription_path, session_folder):
     # Pour chaque segment texte, trouve le speaker dominant
     merged = []
     for segment in transcription:
-        speaker = _find_speaker(segment['start'], segment['end'], diarization)
+        speaker = (
+            _find_speaker(segment['start'], segment['end'], diarization)
+            if diarization else "Intervenant_1"
+        )
         merged.append({
             "speaker": speaker,
             "start": segment['start'],
@@ -35,9 +39,8 @@ def merge_speakers(diarization_path, transcription_path, session_folder):
     with open(output_path, 'w', encoding='utf-8') as f:
         json.dump(merged, f, ensure_ascii=False, indent=2)
 
-    for seg in merged:
-        print(f" [{seg['speaker']}] [{seg['start']:.1f}s → {seg['end']:.1f}s] {seg['text']}")
-    print(f"Fusion : {len(merged)} segments → {output_path}")
+    # Le contenu de la transcription ne doit jamais apparaitre dans les logs.
+    print(f"Fusion : {len(merged)} segments -> {output_path}")
     return output_path
 
 def _find_speaker(start, end, diarization):
@@ -57,7 +60,7 @@ def _find_speaker(start, end, diarization):
             scores[speaker] = scores.get(speaker, 0) + overlap
 
     if not scores:
-        return "UNKNOWN"
+        return "Intervenant_inconnu"
 
     # Retourne le speaker avec le plus grand chevauchement
     return max(scores, key=scores.get)

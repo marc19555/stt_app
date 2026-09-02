@@ -11,6 +11,9 @@ def run_diarization(audio_path, session_folder):
     Lance la diarisation avec pyannote.
     Retourne le chemin du fichier diarization.json
     """
+    if not HF_TOKEN:
+        raise RuntimeError("HF_TOKEN requis lorsque la diarisation est active")
+
     output_folder = os.path.join(session_folder, 'diarization')
     os.makedirs(output_folder, exist_ok=True)
     output_path = os.path.join(output_folder, 'diarization.json')

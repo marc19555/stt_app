@@ -1,10 +1,9 @@
 import os
 import sys
-import numpy as np
 import soundfile as sf
 
 sys.path.append(os.path.dirname(__file__))
-from config import SAMPLE_RATE
+from config import DATA_DIR, SAMPLE_RATE
 import database as db
 
 
@@ -15,16 +14,19 @@ def _resolve_chunk_path_for_docker(path_value):
     normalized = str(path_value).replace('\\', '/')
 
     if normalized.startswith('/app/data/'):
-        return normalized
+        candidate = os.path.join(DATA_DIR, *normalized[len('/app/data/'):].split('/'))
+    elif os.path.isabs(normalized) and os.path.exists(normalized):
+        candidate = normalized
+    else:
+        normalized = normalized.lstrip('/')
+        if normalized.startswith('data/'):
+            normalized = normalized[len('data/'):]
+        candidate = os.path.join(DATA_DIR, *normalized.split('/'))
 
-    if os.path.isabs(normalized) and os.path.exists(normalized):
-        return normalized
-
-    normalized = normalized.lstrip('/')
-    if normalized.startswith('data/'):
-        normalized = normalized[len('data/'):]
-
-    return os.path.join('/app/data', normalized)
+    candidate = os.path.realpath(candidate)
+    if os.path.commonpath((os.path.realpath(DATA_DIR), candidate)) != os.path.realpath(DATA_DIR):
+        raise ValueError("Chemin audio hors du dossier data")
+    return candidate
 
 def prepare_audio(session_id, session_folder):
     """
@@ -64,25 +66,32 @@ def _rebuild_from_chunks(session_id, audio_folder):
     if not rows:
         raise Exception("Aucun chunk audio trouvé en base")
     
-    all_audio = []
-    for row in rows:
-        # Chemin absolu Linux dans le conteneur pour lire les morceaux
-        full_chunk_path = _resolve_chunk_path_for_docker(row['file_path'])
-        
-        if os.path.exists(full_chunk_path):
-            data, _ = sf.read(full_chunk_path)
-            all_audio.append(data)
-        else:
-            print(f"Chunk manquant : {full_chunk_path}")
-            
-    if not all_audio:
-        raise Exception("Tous les chunks sont manquants")
-        
-    final_audio = np.concatenate(all_audio, axis=0)
-    
-    # 3. Chemin absolu Linux pour écrire le fichier final combiné
     final_path = os.path.join(docker_audio_folder, 'final.wav')
-    sf.write(final_path, final_audio, SAMPLE_RATE)
+    frames_written = 0
+    with sf.SoundFile(
+        final_path, mode='w', samplerate=SAMPLE_RATE, channels=1, subtype='PCM_16'
+    ) as destination:
+        for row in rows:
+            full_chunk_path = _resolve_chunk_path_for_docker(row['file_path'])
+            if not full_chunk_path or not os.path.exists(full_chunk_path):
+                print(f"Chunk manquant : {full_chunk_path}")
+                continue
+            with sf.SoundFile(full_chunk_path, mode='r') as source:
+                if source.samplerate != SAMPLE_RATE or source.channels != 1:
+                    raise ValueError(f"Format audio incompatible: {os.path.basename(full_chunk_path)}")
+                while True:
+                    block = source.read(65536, dtype='float32', always_2d=True)
+                    if len(block) == 0:
+                        break
+                    destination.write(block)
+                    frames_written += len(block)
+
+    if frames_written == 0:
+        try:
+            os.remove(final_path)
+        except FileNotFoundError:
+            pass
+        raise Exception("Tous les chunks sont manquants")
     
     # Met à jour la session en BDD
     conn = db.get_connection()
@@ -92,5 +101,5 @@ def _rebuild_from_chunks(session_id, audio_folder):
     conn.commit()
     conn.close()
     
-    print(f"Reconstruit : {final_path}")
+    print(f"Audio reconstruit en flux : {final_path}")
     return final_path

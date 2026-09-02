@@ -1,9 +1,30 @@
-# Environnement
-.env.local
+# Secrets et environnements locaux
 .env
+.env.*
+!.env.local.exemple
+.venv/
 venv/
 __pycache__/
-*.pyc
+*.py[cod]
 
+# Donnees de reunion et artefacts sensibles
+data/
 Data/
-!Data/.gitkeep
+*.wav
+*.mp3
+*.m4a
+*.flac
+*.docx
+*.db
+*.db-*
+*.sqlite*
+*.log
+*.token
+**/transcript*.json
+**/diarization*.json
+**/speaker_map.json
+
+# Fichiers locaux des outils
+.pytest_cache/
+.coverage
+htmlcov/

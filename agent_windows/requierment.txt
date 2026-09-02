@@ -1,5 +1,0 @@
-sounddevice 
-soundfile 
-keyboard
-psutil
-tzdata

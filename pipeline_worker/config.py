@@ -12,40 +12,39 @@ DB_PATH = os.path.join(DATA_DIR, 'stt_app.db')
 SAMPLE_RATE = 16000
 
 # Whisper
-WHISPER_MODEL = 'small'
-WHISPER_LANGUAGE = 'fr'
+WHISPER_MODEL = os.getenv('WHISPER_MODEL', 'base')
+WHISPER_LANGUAGE = os.getenv('WHISPER_LANGUAGE', 'fr')
 
 # Pyannote
 PYANNOTE_MODEL = 'pyannote/speaker-diarization-community-1'
 HF_TOKEN = os.getenv('HF_TOKEN')
+DIARIZATION_ENABLED = os.getenv('DIARIZATION_ENABLED', 'false').lower() in ('1', 'true', 'yes', 'on')
 
 
 # Ollama
-OLLAMA_URL = 'http://host.docker.internal:11434'
-OLLAMA_MODEL = 'qwen3.5:4b'
+OLLAMA_URL = os.getenv('OLLAMA_URL', 'http://host.docker.internal:11435').rstrip('/')
+OLLAMA_PROXY_TOKEN = os.getenv('OLLAMA_PROXY_TOKEN', '')
+OLLAMA_MODEL = os.getenv('OLLAMA_MODEL', 'granite4.1:3b')
+OLLAMA_FALLBACK_MODEL = os.getenv('OLLAMA_FALLBACK_MODEL', 'qwen3.5:0.8b')
 
 # Paramètres spécifiques a ollama pour PV et résumé
 PV_TEMPERATURE = 0.1
 SUMMARY_TEMPERATURE = 0.3
 
-PV_PREDICT = 20000
-SUMMARY_PREDICT = 20000
+PV_PREDICT = int(os.getenv('OLLAMA_NUM_PREDICT', '2048'))
+SUMMARY_PREDICT = int(os.getenv('OLLAMA_NUM_PREDICT', '2048'))
 
 PV_TIMEOUT = 500000
 SUMMARY_TIMEOUT = 500000
 
-GOLBAL_CTX = 65536
+GLOBAL_CTX = int(os.getenv('OLLAMA_NUM_CTX', '8192'))
 
 # Worker
 POLL_INTERVAL = 10 # secondes entre chaque vérification des jobs
 
 MAX_RETRY = 3 # Nombre maximum de tentatives pour un job avant de le marquer comme échoué
 
-# Monitoring RAM (en secondes): frequence d'affichage pendant une etape en cours.
-RAM_LOG_INTERVAL = float(os.getenv('RAM_LOG_INTERVAL', '5'))
-
-# URL du serveur RAM de l'agent Windows (mesure la RAM de la machine hote).
-HOST_RAM_URL = os.getenv('HOST_RAM_URL', 'http://host.docker.internal:8765/ram')
+DOCUMENT_RETENTION_DAYS = int(os.getenv('DOCUMENT_RETENTION_DAYS', '7'))
 
 
 

@@ -1,197 +1,111 @@
-# Guide d'installation et de mise en place du projet stt_app sur Windows
+# Guide utilisateur — Windows, CPU, 8 Go de RAM
 
-## Infos générales + prérequis
+Cette version enregistre une réunion, transcrit l'audio localement avec Whisper,
+puis produit un PV et un résumé avec Ollama. Aucun service d'IA distant n'est
+nécessaire.
 
-Cette page d'information est valide pour Windows.
+> **Important :** les documents générés sont des brouillons. Ils doivent être
+> relus avant toute diffusion. Consultez aussi
+> [DEPLOIEMENT_PROFESSIONNEL.md](DEPLOIEMENT_PROFESSIONNEL.md) : l'usage au travail
+> reste bloqué tant que les autorisations juridiques, DPO et RSSI ne sont pas acquises.
 
-Vous aurez besoin d'un écran, d'un clavier, d'une souris, d'une connexion internet (pour la mise en place) et d'une clé USB (pour la récupération des fichiers traités).
+## Configuration recommandée
 
-Pour ouvrir un invite de commande :
+- Windows 10/11, 8 Go de RAM, CPU uniquement ;
+- Python **3.11** ;
+- Docker Desktop avec WSL 2 ;
+- Ollama ;
+- une seule réunion traitée à la fois.
 
-- utilisez le raccourci Windows + R,
-- dans le champ de saisie qui apparait tapez `cmd` puis Entrée,
-
-ou alors dans la recherche Windows tapez « invite de commande » / « cmd » et cliquez sur l'icône qui apparait.
+Le modèle par défaut est `granite4.1:3b` (environ 2,1 Go dans Ollama), choisi pour
+le français, la sortie structurée et les usages d'entreprise. Le modèle
+`qwen3.5:0.8b` est installé comme secours ultra-léger. Le contexte est limité à
+8K et la sortie à 2K tokens ; les réunions longues sont synthétisées par étapes.
 
 ## Installation
 
-Pour mettre en place un boitier il faut commencer par installer :
+Installez Python 3.11, Docker Desktop et Ollama, puis ouvrez PowerShell dans le
+dossier du projet :
 
-**Ollama** : [https://ollama.com/download/windows](https://ollama.com/download/windows)
-
-**WSL** (Windows Subsystem for Linux), dans un invite de commande tapez :
-
-```
-wsl --update
+```powershell
+Set-ExecutionPolicy -Scope Process Bypass
+.\install.ps1
 ```
 
-**Docker** : [https://docs.docker.com/desktop/setup/install/windows-install/](https://docs.docker.com/desktop/setup/install/windows-install/)
+Le script vérifie Python, Docker, Ollama, le microphone et les ports ; il crée
+`.env.local`, génère le jeton du proxy, installe les dépendances, initialise
+SQLite, télécharge les modèles et construit le conteneur.
 
-Pour Docker il n'est pas nécessaire de se connecter, on peut ignorer l'authentification.
+Si aucun `.wslconfig` n'existe, il installe la limite suivante : 3 Go de RAM,
+2 CPU et 2 Go de swap. Fermez les traitements puis exécutez `wsl --shutdown`
+pour l'appliquer. Si une configuration existe déjà, vérifiez-la ou lancez
+`scripts\configure-wsl.ps1`, qui en crée d'abord une sauvegarde.
 
-Le projet stt_app qui est sur mon GitHub : [https://github.com/marc19555/stt_app](https://github.com/marc19555/stt_app)
+## Utilisation
 
-Pour le projet GitHub, cliquez sur le bouton « Code » en vert puis « Download ZIP ».
+1. Lancez `start.bat`.
+2. Appuyez sur `F12` pour démarrer l'enregistrement.
+3. Appuyez à nouveau sur `F12` pour l'arrêter et créer le job.
+4. Attendez la fin du worker Docker.
+5. Relisez les fichiers `pv.docx` et `resume.docx` dans le dossier de session.
 
-Ensuite ouvrez le projet dans un éditeur de code comme Visual Studio Code.
+Whisper utilise le modèle `base`, le CPU en `int8`, `beam_size=1` et aucun
+horodatage par mot. La diarisation est désactivée par défaut ; tous les propos
+sont alors associés à `Intervenant_1`. Pour l'activer sur un PC plus puissant,
+ajoutez un jeton Hugging Face et passez `DIARIZATION_ENABLED=true` dans
+`.env.local`, puis relancez `start.bat` pour reconstruire l'image.
 
-Renommez `.env.local.exemple` en `.env.local`.
+## Sécurité et conservation
 
-Dans le `.env.local` vous devez renseigner un token Hugging Face.
+- Ollama écoute seulement sur `127.0.0.1:11434`.
+- Docker passe par un proxy à jeton sur le port 11435. Seules les routes Ollama
+  indispensables sont autorisées et aucun corps de requête n'est journalisé.
+- Les contenus transcrits ne sont pas affichés dans les logs.
+- Après succès, audio, chunks et JSON intermédiaires sont supprimés.
+- Les documents restants sont automatiquement supprimés après sept jours.
+- Les intervenants restent nommés `Intervenant_1`, `Intervenant_2`, etc. Le
+  modèle ne doit jamais déduire leur identité ou leur fonction.
+- `.gitignore` et `scripts\check_git_safety.py` empêchent l'ajout accidentel de
+  données de réunion, documents et secrets à Git.
 
-Pour obtenir un token valide créez un compte sur Hugging Face : [https://huggingface.co/join](https://huggingface.co/join)
+## Clé USB sécurisée
 
-Vous devez accepter les termes et conditions des modèles pyannote et Whisper (à vérifier).
+La copie exige une clé amovible nommée `RESUMER`, son numéro de volume, un fichier
+secret et BitLocker actif. Après avoir activé BitLocker sur la clé :
 
-Ensuite lancez la commande :
-
+```powershell
+.\scripts\configure-usb.ps1
 ```
-cd stt_app\agent_windows
-pip install -r requirements.txt
-python database.py
+
+Le script lie la clé à l'installation. À chaque copie, seuls les `.docx` sont
+transférés et leur SHA-256 est vérifié avant validation du fichier de destination.
+
+## Arrêt et diagnostic
+
+Utilisez `stop.bat` pour arrêter le worker, l'agent et Ollama. En cas d'échec :
+
+```powershell
+.\.venv\Scripts\python.exe agent_windows\preflight.py
+docker compose --env-file .env.local ps
+docker compose --env-file .env.local logs --tail 100 pipeline_worker
 ```
 
-Cela installe les dépendances et initialise la base de données.
+Messages usuels :
 
-Pour télécharger le modèle d'IA qu'on utilise ici, faites la commande suivante dans un invite de commande (assurez-vous d'avoir déjà installé Ollama) :
+- `OLLAMA_PROXY_TOKEN absent` : relancez `install.ps1` ;
+- conteneur `unhealthy` : vérifiez que l'agent Windows et Ollama sont actifs ;
+- modèle absent : exécutez `ollama pull granite4.1:3b` ;
+- diarisation impossible : vérifiez le jeton Hugging Face et l'accès au modèle ;
+- clé refusée : vérifiez BitLocker puis relancez le provisionnement USB.
 
+## Validation avant pilote
+
+Exécutez les tests avec Python 3.11 :
+
+```powershell
+.\.venv\Scripts\python.exe -m unittest discover -s tests -v
+.\.venv\Scripts\python.exe scripts\check_git_safety.py
 ```
-ollama pull qwen3.5:4b
-```
 
-Vous pouvez configurer une clé USB comme périphérique pour récupérer les données. Vous devez connaitre le label exact de votre clé, par exemple `RESUME` (modifiable dans le `config.py` de `agent_windows`).
-
-Dans le dossier `stt_app` vous trouverez un `start.bat`.
-
-Ce `start.bat` permet de démarrer l'application Windows et Docker (et d'ouvrir le serveur local Ollama).
-
-Vous aurez 3 fenêtres qui s'ouvriront :
-
-- une fenêtre de démarrage Ollama (pas intéressante, à garder ouverte mais à ignorer),
-- une fenêtre de l'application,
-- une fenêtre Docker.
-
-Docker va donc lancer son build, pour la première fois ça peut prendre plusieurs minutes (installation des composants Linux nécessaires et des dépendances).
-
-Ensuite testez F12 pour enregistrer, puis F12 pour arrêter et lancer le traitement (le résultat est sauvegardé dans la base de données).
-
-Si vous voyez que Docker détecte un job et arrive au bout, bien joué, c'est réussi.
-
-## Ça serait mieux de faire ça aussi
-
-Avec le raccourci Ctrl + Shift + Échap on ouvre le gestionnaire des tâches.
-
-Dans l'onglet « Applications de démarrage », désactivez les services inutiles.
-
-⚠️ **Ne pas désactiver `SecurityHealthSystray.exe`, `ollama.exe` et `docker.exe`** (peut-être j'en oublie d'autres).
-
-## Problèmes possibles anticipés
-
-Dans les deux invites de commande, les logs s'affichent en direct sous vos yeux. C'est ici que se passe le débogage.
-
-Dans Docker on peut avoir :
-
-- une erreur de token Hugging Face (token manquant, invalide, ou conditions d'utilisation des modèles pyannote/Whisper non acceptées) ;
-- un serveur Ollama qui ne répond pas (vérifier que la fenêtre Ollama est bien ouverte, relancer `start.bat` si besoin) ;
-- un débordement de la RAM si mal géré (je crois — pas sûr que ce soit vraiment possible).
-
-Au lancement de l'agent Windows vous pouvez avoir une erreur de périphérique audio non détecté, mais cette erreur est non bloquante, pas besoin de relancer le script.
-
-*(Cette liste sera complétée au fil des retours d'utilisation.)*
-
-## Comment l'application marche, alors
-
-### Fonctionnement général
-
-De manière très générale, l'application se compose d'une partie qui fonctionne sous Windows (`agent_windows`) et d'une partie qui fonctionne sous Linux (`pipeline_worker`). Et d'une base de données SQLite localisée dans le dossier `data`.
-
-La partie Windows récupère les données et les envoie dans la base de données.
-
-La partie Linux récupère les données de la base de données et les traite (STT + diarisation) puis renvoie les données dans la base de données.
-
-Enfin on peut récupérer les données de la base de données grâce à une clé USB.
-
-L'application se divise en trois grandes parties :
-
-1. agent_windows
-2. pipeline_worker
-3. data
-4. le reste
-
-### 1. agent_windows
-
-L'agent Windows se compose de plusieurs parties.
-
-Le « déclencheur » est `hotkey_listener.py`, il sert notamment à « écouter » l'appui sur la touche F12 pour commencer et arrêter l'enregistrement audio. Il ne peut y avoir qu'une seule instance du hotkey listener grâce à la création d'un verrou via `SingleInstanceLock`.
-
-Ensuite on a `ram_server.py`, lui sert à lancer le serveur HTML en arrière-plan pour permettre d'afficher la RAM dans les logs de Docker.
-
-Puis `usb_listener.py` qui vérifie la présence d'une clé USB toutes les 5 secondes et copie les fichiers traités vers la clé USB si elle est détectée.
-
-`session_manager.py` gère les sessions et les enregistrements, il sauvegarde les données dans la base de données.
-
-`recorder.py` enregistre l'audio.
-
-`audio_chunker.py` découpe l'audio enregistré en morceaux avant traitement (à compléter/vérifier).
-
-`notifier.py` gère les notifications de l'application (à compléter/vérifier).
-
-`database.py` sert à initialiser la base de données.
-
-`config.py` sert à configurer l'application.
-
-`simple_logger.py` gère l'écriture des logs.
-
-### 2. pipeline_worker
-
-C'est la partie qui tourne dans Docker, sous Linux. Elle surveille la base de données, traite les enregistrements en attente (transcription, diarisation, génération du PV et du résumé), puis renvoie les résultats dans la base.
-
-`worker.py` orchestre l'ensemble du pipeline : il détecte les nouveaux jobs et enchaine les étapes de traitement.
-
-`audio_preprocess.py` prépare l'audio avant la transcription.
-
-`transcription.py` transcrit l'audio en texte.
-
-`diarization.py` identifie qui parle et à quel moment.
-
-`speaker_merger.py` fusionne les informations de transcription et de diarisation pour attribuer chaque segment de texte au bon locuteur.
-
-`ollama_client.py` fait le lien avec le serveur Ollama pour générer le compte-rendu et le résumé.
-
-`pv_generator.py` génère le procès-verbal (PV) de la réunion.
-
-`summary_generator.py` génère le résumé de la réunion.
-
-`exporter.py` / `exporter2.py` exportent les résultats finaux (à préciser, différence entre les deux à clarifier).
-
-`database.py` gère l'accès à la base de données depuis le pipeline.
-
-`config.py` sert à configurer le pipeline.
-
-`simple_logger.py` gère l'écriture des logs du pipeline.
-
-`Dockerfile` définit l'image Docker utilisée pour exécuter le pipeline.
-
-`requirements.txt` liste les dépendances Python du pipeline.
-
-### 3. data
-
-Dossier qui contient toutes les données générées par l'application :
-
-- `stt_app.db`, la base de données SQLite ;
-- `logs/`, les fichiers de logs, avec un sous-dossier `archive/` pour les anciens logs ;
-- `sessions/`, un dossier par réunion enregistrée (ex. `Réunion_20260616_162049`), chacun avec un sous-dossier `audio/` contenant les fichiers audio correspondants.
-
-### 4. le reste
-
-`.env.local` contient les informations sensibles (ex. token Hugging Face), ne doit pas être partagé.
-
-`.env.local.exemple` est le modèle vide à copier et compléter.
-
-`.gitignore` liste les fichiers/dossiers exclus du suivi Git.
-
-`docker-compose.yml` décrit comment lancer le conteneur `pipeline_worker`.
-
-`start.bat` démarre l'application (agent Windows + Docker + Ollama).
-
-`stop.bat` arrête l'application.
+Il reste indispensable de réaliser un essai réel d'une heure sur le PC cible,
+puis un essai de fusion de quatre heures, avant toute utilisation opérationnelle.

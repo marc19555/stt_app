@@ -1,47 +1,40 @@
 import time
 import sys
 import os
-import json
-import urllib.request
 
 sys.path.append(os.path.dirname(__file__))
 from simple_logger import setup_daily_console_log
-from config import POLL_INTERVAL, HOST_RAM_URL
+from config import DOCUMENT_RETENTION_DAYS, POLL_INTERVAL
 import database as db
-
-
-def _print_idle_ram_reference(context):
-    """Affiche une reference RAM hote hors pipeline pour comparer avec les pics de traitement."""
-    try:
-        with urllib.request.urlopen(HOST_RAM_URL, timeout=2) as resp:
-            data = json.loads(resp.read())
-        used_gb, total_gb, percent = data['used_gb'], data['total_gb'], data['percent']
-        print(
-            f"RAM hote reference hors pipeline [{context}]: "
-            f"{used_gb:.2f}GB/{total_gb:.2f}GB ({percent:.1f}%)"
-        )
-    except Exception:
-        print(f"RAM hote reference hors pipeline [{context}]: indisponible (agent non joignable)")
 
 
 class Worker:
     def __init__(self):
         self.running = True
-        # Reference initiale: etat memoire avant tout job de pipeline.
-        _print_idle_ram_reference("demarrage worker")
+        db.init_db()
+        recovered, failed = db.recover_stuck_jobs()
+        if recovered or failed:
+            print(f"Reprise jobs: {recovered} remis en attente, {failed} en echec")
+        purged = db.purge_expired_sessions(DOCUMENT_RETENTION_DAYS)
+        if purged:
+            print(f"Retention: {purged} session(s) purgee(s)")
+        self._last_purge = time.monotonic()
         print("Worker démarré — en attente de jobs...")
 
     def run(self):
         while self.running:
-            job = db.get_next_pending_job()
+            job = db.claim_next_pending_job()
 
             if job is None:
+                if time.monotonic() - self._last_purge >= 3600:
+                    purged = db.purge_expired_sessions(DOCUMENT_RETENTION_DAYS)
+                    if purged:
+                        print(f"Retention: {purged} session(s) purgee(s)")
+                    self._last_purge = time.monotonic()
                 print(f"Aucun job en attente, retry dans {POLL_INTERVAL}s...")
                 time.sleep(POLL_INTERVAL)
                 continue
 
-            # Reference juste avant de lancer un pipeline pour cette session.
-            _print_idle_ram_reference(f"avant job {job['id']}")
             print(f"Job trouvé : id={job['id']} session={job['session_id']}")
             self._process_job(job)
 
@@ -49,8 +42,6 @@ class Worker:
         job_id = job['id']
         session_id = job['session_id']
 
-        # Marque le job comme en cours
-        db.set_job_status(job_id, 'running')
         db.set_session_status(session_id, 'processing')
 
         try:
