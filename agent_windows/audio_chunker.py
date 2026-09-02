@@ -1,6 +1,5 @@
 import os
 import sys
-import numpy as np
 import soundfile as sf
 
 sys.path.append(os.path.dirname(__file__))
@@ -13,12 +12,15 @@ def _resolve_data_path(path_value):
         return None
 
     if os.path.isabs(path_value):
-        return path_value
-
-    normalized = str(path_value).replace('\\', '/').lstrip('/')
-    if normalized.startswith('data/'):
-        normalized = normalized[len('data/'):]
-    return os.path.join(DATA_DIR, normalized)
+        candidate = os.path.realpath(path_value)
+    else:
+        normalized = str(path_value).replace('\\', '/').lstrip('/')
+        if normalized.startswith('data/'):
+            normalized = normalized[len('data/'):]
+        candidate = os.path.realpath(os.path.join(DATA_DIR, *normalized.split('/')))
+    if os.path.commonpath((os.path.realpath(DATA_DIR), candidate)) != os.path.realpath(DATA_DIR):
+        raise ValueError("Chemin audio hors du dossier data")
+    return candidate
 
 def merge_chunks(session_id, session_folder):
     """
@@ -41,22 +43,35 @@ def merge_chunks(session_id, session_folder):
         print("Aucun chunk trouvé pour cette session")
         return None
 
-    # Concatène les fichiers audio
-    all_audio = []
-    for row in rows:
-        chunk_path = _resolve_data_path(row['file_path'])
-        if chunk_path and os.path.exists(chunk_path):
-            data, _ = sf.read(chunk_path)
-            all_audio.append(data)
-        else:
-            print(f"Chunk manquant : {row['file_path']}")
-
-    if not all_audio:
-        return None
-
-    final_audio = np.concatenate(all_audio, axis=0)
     final_path = os.path.join(audio_folder, 'final.wav')
-    sf.write(final_path, final_audio, SAMPLE_RATE)
+    frames_written = 0
+    found = False
+    # Ecriture bloc par bloc : la RAM reste constante, meme pour quatre heures.
+    with sf.SoundFile(
+        final_path, mode='w', samplerate=SAMPLE_RATE, channels=1, subtype='PCM_16'
+    ) as destination:
+        for row in rows:
+            chunk_path = _resolve_data_path(row['file_path'])
+            if not chunk_path or not os.path.exists(chunk_path):
+                print(f"Chunk manquant : {row['file_path']}")
+                continue
+            found = True
+            with sf.SoundFile(chunk_path, mode='r') as source:
+                if source.samplerate != SAMPLE_RATE or source.channels != 1:
+                    raise ValueError(f"Format audio incompatible: {os.path.basename(chunk_path)}")
+                while True:
+                    block = source.read(65536, dtype='float32', always_2d=True)
+                    if len(block) == 0:
+                        break
+                    destination.write(block)
+                    frames_written += len(block)
+
+    if not found:
+        try:
+            os.remove(final_path)
+        except FileNotFoundError:
+            pass
+        return None
 
     # Met à jour la session en base
     conn = db.get_connection()
@@ -69,6 +84,6 @@ def merge_chunks(session_id, session_folder):
     conn.commit()
     conn.close()
 
-    duration = len(final_audio) / SAMPLE_RATE
+    duration = frames_written / SAMPLE_RATE
     print(f"Fichier final créé : {final_path} ({duration:.1f}s)")
     return final_path

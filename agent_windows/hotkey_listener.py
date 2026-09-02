@@ -10,7 +10,7 @@ from simple_logger import setup_daily_console_log
 from session_manager import SessionManager
 from recorder import Recorder, has_audio_input_device
 from notifier import bip_start, bip_stop, bip_error, bip_no_device
-from ram_server import start_ram_server
+from ollama_proxy import start_ollama_proxy
 from config import HOTKEY, MAX_RECORDING_DURATION
 
 
@@ -127,23 +127,27 @@ if __name__ == "__main__":
     # Active la duplication console -> fichier log journalier avant tout print.
     setup_daily_console_log("agent_windows")
 
-    start_ram_server()
-
-    from usb_listener import UsbListener
-    UsbListener().start()
-
     instance_lock = SingleInstanceLock("stt_agent_windows.lock")
     if not instance_lock.acquire():
         print("Une instance de l'agent Windows est deja en cours d'execution.")
         bip_error()
         sys.exit(1)
 
-    # Vérification du microphone au démarrage de l'agent
-    if not has_audio_input_device():
-        print("[ATTENTION] Aucun périphérique d'entrée audio (microphone) détecté au démarrage. Veuillez brancher un microphone.")
-
+    proxy = None
     try:
+        proxy = start_ollama_proxy()
+
+        from usb_listener import UsbListener
+        UsbListener().start()
+
+        # Vérification du microphone au démarrage de l'agent
+        if not has_audio_input_device():
+            print("[ATTENTION] Aucun périphérique d'entrée audio (microphone) détecté au démarrage. Veuillez brancher un microphone.")
+
         listener = HotkeyListener()
         listener.run()
     finally:
+        if proxy is not None:
+            proxy.shutdown()
+            proxy.server_close()
         instance_lock.release()

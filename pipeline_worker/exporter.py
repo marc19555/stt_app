@@ -11,11 +11,11 @@ def export_all(session_id, folder, merged_path, pv_path, summary_path):
 
     
     pv_output_path = os.path.join(output_folder, 'pv.docx')
-    _export_docx(pv_path, pv_output_path, 'Procès-Verbal')
+    _export_docx(pv_path, pv_output_path, 'Procès-Verbal — BROUILLON À VALIDER')
     db.save_artifact(session_id, 'pv_docx', os.path.abspath(pv_output_path))
 
-    summary_output_path = os.path.join(output_folder, 'resumer.docx')
-    _export_docx(summary_path, summary_output_path, 'Resumer')
+    summary_output_path = os.path.join(output_folder, 'resume.docx')
+    _export_docx(summary_path, summary_output_path, 'Résumé — BROUILLON À VALIDER')
     db.save_artifact(session_id, 'resumer_docx', os.path.abspath(summary_output_path))
 
 def _export_docx(md_path, docx_path, title):
@@ -26,6 +26,11 @@ def _export_docx(md_path, docx_path, title):
 
     doc = Document()
     doc.add_heading(title, level=0)
+    warning = doc.add_paragraph()
+    warning.add_run(
+        "Document généré automatiquement — brouillon à relire et valider avant diffusion."
+    ).bold = True
+    doc.core_properties.comments = "BROUILLON A VALIDER - generation automatique"
 
     for line in lines:
         line = line.rstrip()

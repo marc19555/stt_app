@@ -70,6 +70,9 @@ def init_db():
             display_name TEXT,
             role TEXT
         );
+
+        CREATE INDEX IF NOT EXISTS idx_jobs_queue
+            ON jobs(status, priority DESC, created_at ASC);
     """)
 
     conn.commit()

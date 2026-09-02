@@ -23,8 +23,11 @@ def run_transcription(audio_path, session_folder):
     segments, info = model.transcribe(
         audio_path,
         language=WHISPER_LANGUAGE,
-        beam_size=5,
-        word_timestamps=True
+        beam_size=1,
+        best_of=1,
+        word_timestamps=False,
+        condition_on_previous_text=False,
+        vad_filter=True,
     )
 
     # Convertit en JSON
@@ -39,7 +42,7 @@ def run_transcription(audio_path, session_folder):
     with open(output_path, 'w', encoding='utf-8') as f:
         json.dump(transcript, f, ensure_ascii=False, indent=2)
 
-    print(f"Transcription : {len(transcript)} segments → {output_path}")
+    print(f"Transcription : {len(transcript)} segments -> {output_path}")
 
     # Libère le modèle Whisper de la RAM
     del model

@@ -15,24 +15,31 @@ def _resolve_session_folder(folder_path):
         return None
 
     normalized = str(folder_path).replace('\\', '/')
+    sessions_root = os.path.realpath(SESSIONS_ROOT)
+
+    def validated(candidate):
+        candidate = os.path.realpath(candidate)
+        if os.path.commonpath((sessions_root, candidate)) != sessions_root:
+            raise ValueError("Chemin de session hors du dossier data/sessions")
+        return candidate
 
     if os.path.isabs(folder_path) and os.path.exists(folder_path):
-        return folder_path
+        return validated(folder_path)
 
     if normalized.startswith('data/'):
         normalized = normalized[len('data/'):]
 
     if normalized.startswith('sessions/'):
-        return os.path.join(DATA_ROOT, normalized)
+        return validated(os.path.join(DATA_ROOT, *normalized.split('/')))
 
     marker = '/data/'
     idx = normalized.lower().find(marker)
     if idx != -1:
         tail = normalized[idx + len(marker):]
         if tail.startswith('sessions/'):
-            return os.path.join(DATA_ROOT, tail)
+            return validated(os.path.join(DATA_ROOT, *tail.split('/')))
 
-    return os.path.join(SESSIONS_ROOT, os.path.basename(normalized))
+    return validated(os.path.join(SESSIONS_ROOT, os.path.basename(normalized)))
 
 class SessionManager:
     def __init__(self):
@@ -78,7 +85,9 @@ class SessionManager:
         row = conn.execute("SELECT folder_path FROM sessions WHERE id = ?",
                            (session_id,)).fetchone()
         conn.close()
-        merge_chunks(session_id, _resolve_session_folder(row['folder_path']))
+        final_path = merge_chunks(session_id, _resolve_session_folder(row['folder_path']))
+        if not final_path:
+            raise RuntimeError("Aucun audio exploitable; aucun job n'a ete cree")
 
         # Met à jour le statut + crée le job
         conn = db.get_connection()
@@ -94,7 +103,7 @@ class SessionManager:
         conn.commit()
         conn.close()
 
-        print(f"Session arrêtée (id={session_id}) → job créé")
+        print(f"Session arrêtée (id={session_id}) -> job créé")
         self.current_session_id = None
         self.current_session_folder = None
 
